@@ -72,10 +72,10 @@ export default class PlayerKart {
                 let steerCoefficient, dirMp;
                 if (this.driftRight) {
                     steerCoefficient = (1 + this.steering) / 2;
-                    dirMp = -1;
+                    dirMp = 1;
                 } else {
                     steerCoefficient = (1 - this.steering) / 2;
-                    dirMp = 1;
+                    dirMp = -1;
                 }
                 // At the beginning of a drift, turn sharper
                 let driftStartBonus = (this.driftDuration < 7 ? (7 - this.driftDuration) : 0) / 4;
@@ -87,7 +87,7 @@ export default class PlayerKart {
         }
         // Rotate without drift
         if (this.driftDuration <= 0) {
-            rotationAngle = -this.steering * this.kartTurnspeed;
+            rotationAngle = this.steering * this.kartTurnspeed;
         }
         this.modelHeading = rotateVector(this.modelHeading, [0, 0, 1], rotationAngle);
     }
@@ -97,9 +97,9 @@ export default class PlayerKart {
             // Alter throttle heading in drift
             this.driftDuration > 0 ||
             // Sideway boost
-            (this.mt > 0 && ((this.driftRight && this.steering < 0) || (!this.driftRight && this.steering > 0)))
+            (this.mt > 0 && ((this.driftRight && this.steering < 0.2) || (!this.driftRight && this.steering > 0.2)))
         ) {
-            return rotateVector(this.modelHeading, [ 0, 0, 1 ], this.driftOffset * (5.5 - Math.sqrt(this.mtSteadiness)) / 5.5 * (this.driftRight ? 1 : -1));
+            return rotateVector(this.modelHeading, [ 0, 0, 1 ], this.driftOffset * (5.5 - Math.sqrt(this.mtSteadiness)) / 5.5 * (this.driftRight ? -1 : 1));
         } else {
             return this.modelHeading;
         }
