@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import PlayerKart from 'LevelObject/PlayerKart';
+import PlayerKart from 'ObjectLogic/PlayerKart';
 import GamepadManager from 'Controls/GamepadManager';
 import PlayerManager from 'PlayerManager';
 import { clearHudConsole } from 'utils';
