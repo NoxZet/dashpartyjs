@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 //import RaycastPlane from 'Gfx/RaycastPlane';
 
-const CAMERA_OFFSET = new THREE.Vector3(0, 30, -50);
 const textureLoader = new THREE.TextureLoader();
 
 /**
@@ -15,15 +14,18 @@ export default class Level {
         //this.scene.background = textureLoader.load('res/ocean.png');
         this.setupCamera();
         this.setupCanvas();
+
+        const mapmat = new THREE.MeshBasicMaterial({
+            map: textureLoader.load('res/map_test.png')
+        });
+        const mapplane = new THREE.Mesh(new THREE.PlaneGeometry(70, 70), mapmat);
+        mapplane.material.side = THREE.DoubleSide;
+        this.scene.add(mapplane);
         //this.raycastPlane = new RaycastPlane(this.camera, this.scene);
     }
 
     setupCamera() {
         this.camera = new THREE.PerspectiveCamera(45, 1, 1, 1000);
-        this.camera.position.copy(CAMERA_OFFSET);
-        this.camera.up.copy(new THREE.Vector3(0, CAMERA_OFFSET.z, -CAMERA_OFFSET.y).normalize());
-        this.camera.lookAt(new THREE.Vector3(0, 0, 0));
-        this.camera.updateProjectionMatrix();
     }
 
     setupCanvas() {
@@ -37,7 +39,12 @@ export default class Level {
     updateCamera() {
         // Set camera behind kart
         const kart3d = this.trackObject.object3d;
-        this.camera.position.copy(new THREE.Vector3(kart3d.position.x, kart3d.position.y - 6, kart3d.position.z + 2));
+        const cameraHeading = this.trackObject.cameraHeading;
+        this.camera.position.copy(new THREE.Vector3(
+            kart3d.position.x + cameraHeading.x * 6,
+            kart3d.position.y + cameraHeading.y * 6,
+            kart3d.position.z + 2)
+        );
         this.camera.up.copy(new THREE.Vector3(0, 0, 1));
         this.camera.lookAt(new THREE.Vector3(kart3d.position.x, kart3d.position.y, kart3d.position.z + 1));
         this.camera.updateProjectionMatrix();
