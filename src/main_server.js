@@ -23,6 +23,11 @@ const httpServer = http.createServer((req, res) => {
         res.end('Bad Request');
         return;
     }
+    if (!fs.existsSync(path)) {
+        res.writeHead(400, {'Content-Type': 'text/html'});
+        res.end('Bad Request');
+        return;
+    }
     res.writeHead(200, {'Content-Type': getMime(path)});
     let stream = fs.createReadStream(path);
     stream.on('finish', function(){
