@@ -22,6 +22,9 @@ export default class PlayerKart {
         this.kartTurnspeed = 1 / 180 * Math.PI; // about 0.174
         this.avgMomentumTurnspeed = this.kartTurnspeed / 10;
         this.maxMomentumTurnspeed = this.kartTurnspeed * 2;
+        // Hitbox
+        this.hitboxRadius = 0.8;
+        this.hitboxHeight = 1;
         // Controls
         this.steering = 0;
         this.throttle = false;
