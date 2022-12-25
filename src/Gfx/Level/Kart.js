@@ -17,6 +17,9 @@ export default class Kart {
     }
 
     update() {
+        // Set MT tilt
+        const tilt = Math.max(1, this.kart.currentSpeed / this.kart.kartSpeed);
+        this.model.rotation.x = (tilt - 1) / 3;
         // Set position to kart
         this.object3d.position.set(...this.kart.pos);
         // Adjust camera to be opposite of average of kart model heading and momentum

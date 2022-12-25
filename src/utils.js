@@ -81,7 +81,7 @@ export function clearHudConsole() {
 }
 
 export function printHudConsole(text) {
-    document.getElementById('hud-container').innerHTML = (
+    document.getElementById('hud-container').innerHTML += (
         (document.getElementById('hud-container').innerHTML === '' ? '' : '<br>')
         + JSON.stringify(text, null, 2).replaceAll('\n', '<br>')
     );

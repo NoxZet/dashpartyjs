@@ -33,7 +33,7 @@ export default class Level {
     }
 
     setupCamera() {
-        this.camera = new THREE.PerspectiveCamera(45, 1, 1, 1000);
+        this.camera = new THREE.PerspectiveCamera(35, 1, 1, 1000);
     }
 
     setupCanvas() {
