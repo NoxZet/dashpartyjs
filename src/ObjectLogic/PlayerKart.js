@@ -32,6 +32,10 @@ export default class PlayerKart {
         this.driftKey = false;
     }
 
+    get currentSpeed() {
+        return absoluteValue(this.momentum);
+    }
+
     get maxSpeed() {
         // Todo terrain slowdown
         return this.kartSpeed * ((this.miniturbo > 0) ? 1.3 : 1);
@@ -120,7 +124,7 @@ export default class PlayerKart {
                 } else if (origAbsMomentum < this.maxSpeed) {
                     momentum = mpVector(momentum, Math.min(this.maxSpeed, origAbsMomentum + this.kartThrottleAcc) / origAbsMomentum);
                 }
-            } else if (origAbsMomentum > 0) {
+            } else if (this.miniturbo <= 0 && origAbsMomentum > 0) {
                 const slowdown = (this.brakeKey ? 2.2 : 1) * this.kartSlowdown;
                 momentum = mpVector(momentum, Math.max(0, origAbsMomentum - this.kartThrottleAcc) / origAbsMomentum);
             }
@@ -140,7 +144,7 @@ export default class PlayerKart {
                 if (!this.throttle) {
                     this.mtSteadiness++;
                 }
-                momentum = addVectors(momentum, this.momentum, this.mtAcc);
+                momentum = addVectors(momentum, this.momentum, this.mtAcc / absoluteValue(this.momentum));
             }
         }
         // The speed kart mustn't be over after this frame - real max speed + gradual decrease if over
