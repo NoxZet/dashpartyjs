@@ -18,7 +18,7 @@ export default class Kart {
 
     update() {
         // Set position to kart
-        this.object3d.position.set(...this.kart.pos).divideScalar(10);
+        this.object3d.position.set(...this.kart.pos);
         // Adjust camera to be opposite of average of kart model heading and momentum
         const modelHeading = new Vector3(...this.kart.modelHeading);
         const momentum = new Vector3(...this.kart.momentum);
