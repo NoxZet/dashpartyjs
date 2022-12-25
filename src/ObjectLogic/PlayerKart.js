@@ -2,7 +2,7 @@ import { absoluteValue, addVectors, crossProduct, dotProduct, mpVector, printHud
 
 export default class PlayerKart {
     constructor() {
-        this.pos = [ 100, 100, 0 ];
+        this.pos = [ 10, 10, 0 ];
         this.momentum = [ 0, 0, 0 ];
         this.modelHeading = [ 1, 0, 0 ];
         this.miniturbo = 0;
@@ -12,7 +12,7 @@ export default class PlayerKart {
         this.driftRight = true;
         this.mtSteadiness = 0;
         // Kart stats
-        this.kartSpeed = 1;
+        this.kartSpeed = 0.1;
         this.mtAcc = this.kartSpeed * 0.03;
         this.kartThrottleAcc = this.kartSpeed * 0.005;
         this.kartSlowdown = this.kartSpeed * 0.012;
