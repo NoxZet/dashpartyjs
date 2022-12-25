@@ -21,6 +21,14 @@ export default class Level {
         const mapplane = new THREE.Mesh(new THREE.PlaneGeometry(70, 70), mapmat);
         mapplane.material.side = THREE.DoubleSide;
         this.scene.add(mapplane);
+
+        const wallmat = new THREE.MeshBasicMaterial({
+            color: "gray",
+            side: THREE.DoubleSide,
+        });
+        const triangle = new THREE.BufferGeometry();
+        triangle.setAttribute("position", new THREE.BufferAttribute(new Float32Array([7, 7, 0, 12, 7.5, 0, 7, 6.5, 2]), 3));
+        this.scene.add(new THREE.Mesh(triangle, wallmat));
         //this.raycastPlane = new RaycastPlane(this.camera, this.scene);
     }
 

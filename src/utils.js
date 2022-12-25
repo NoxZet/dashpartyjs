@@ -22,8 +22,13 @@ export function mpVector(a, scalar) {
 export function addVectors(a, b, scalar = 1) {
     return [ a[0] + b[0] * scalar, a[1] + b[1] * scalar, a[2] + b[2] * scalar ];
 }
+
 export function addVectors3(a, b, c) {
     return [ a[0] + b[0] + c[0], a[1] + b[1] + c[1], a[2] + b[2] + c[2] ];
+}
+
+export function subVector(a, b) {
+    return [ a[0] - b[0], a[1] - b[1], a[2] - b[2] ];
 }
 
 export function dotProduct(a, b) {
