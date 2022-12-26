@@ -163,10 +163,9 @@ export default class PlayerKart {
         this.pos = addVectors(this.pos, this.momentum);
     }
 
-    update() {
+    updateControls() {
         this.updateHeading();
         this.updateMomentum();
-        this.updatePosition();
         printHudConsole({absmomen: absoluteValue(this.momentum), momentum: this.momentum, mt: this.miniturbo, driftDuration: this.driftDuration, icyness: this.mtSteadiness});
     }
 }

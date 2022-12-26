@@ -5,6 +5,7 @@ import PlayerManager from 'PlayerManager';
 import { clearHudConsole } from 'utils';
 import Kart from 'Gfx/Model/Kart';
 import Level from 'Gfx/Level';
+import Collision from 'Collision';
 
 const modelKart = new Kart();
 modelKart.load('res/shuttle.json').then(_ => {
@@ -21,6 +22,7 @@ const levelKart = modelKart.createLevel(playerKart, null);
 const level = new Level();
 level.trackObject = levelKart;
 levelKart.addToScene(level.scene);
+const collision = new Collision();
 
 let frame = 0;
 let timer = 0;
@@ -43,8 +45,12 @@ function request() {
     }
     clearHudConsole();
     playerManager.refresh();
-    playerKart.update();
+
+    playerKart.updateControls();
+    collision.collide(playerKart);
+    playerKart.updatePosition();
     levelKart.update();
+
     level.render();
 
     requestAnimationFrame(request);
