@@ -1,4 +1,5 @@
-import { absoluteValue, addVectors, crossProduct, dotProduct, mpVector, printHudConsole, rotateVector } from "utils";
+import { printHudConsole } from "utils";
+import { absoluteValue, addVectors, crossProduct, dotProduct, mpVector, rotateVector } from "vector_utils";
 
 export default class PlayerKart {
     constructor() {
