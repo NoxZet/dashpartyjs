@@ -7,6 +7,10 @@ export function absoluteValue(a, b = 0, c = 0) {
     return Math.sqrt(a * a + b * b + c * c);
 }
 
+export function angleBetween(v1, v2) {
+    return Math.acos(dotProduct(v1, v2) / (absoluteValue(v1) * absoluteValue(v2)));
+}
+
 export function mpVector(a, scalar) {
     return [ a[0] * scalar, a[1] * scalar, a[2] * scalar ];
 }

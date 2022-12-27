@@ -27,7 +27,7 @@ export default class Level {
             side: THREE.DoubleSide,
         });
         const triangle = new THREE.BufferGeometry();
-        triangle.setAttribute("position", new THREE.BufferAttribute(new Float32Array([7, 7, 0, 12, 7.5, 0, 7, 6.5, 2]), 3));
+        triangle.setAttribute("position", new THREE.BufferAttribute(new Float32Array([7, 7, 0, 20, 7.5, 0, 7, 7, 2]), 3));
         this.scene.add(new THREE.Mesh(triangle, wallmat));
         //this.raycastPlane = new RaycastPlane(this.camera, this.scene);
     }

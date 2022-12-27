@@ -1,14 +1,18 @@
 import { printHudConsole } from "utils";
-import { absoluteValue, addVectors, crossProduct, invertMatrix3x3, mpMatrix3x3Vector, mpVector, subVector } from "vector_utils";
+import { absoluteValue, addVectors, angleBetween, crossProduct, invertMatrix3x3, mpMatrix3x3Vector, mpVector, rotateVector, subVector } from "vector_utils";
+
+const BOUNCE_AMOUNT = 0.6;
 
 export default class Collision {
 	constructor() {
 		this.colliderWalls = [
-			{0: [7, 7, 0], 1: [12, 7.5, 0], 2: [7, 6.5, 2]}
+			{0: [7, 7, 0], 1: [20, 7.5, 0], 2: [7, 7, 2]}
 		];
 	}
 
 	collide(kart) {
+		let wallContact = false;
+		const throttleHeading = kart.throttleHeading;
 		for (let wall of this.colliderWalls) {
 			// Create a set of three vectors to represent the wall
 			// TODO: make sure v2[2] > 0
@@ -51,13 +55,16 @@ export default class Collision {
 					let topRatio = 0;
 					// Z is below wall, add top to be exactly at 0
 					if (currEdge[2] < 0) {
+						if (top[2] <= 0) {
+							throw "Wall is oriented incorrectly";
+						}
 						topRatio = -currEdge[2] / top[2];
 						currEdge = addVectors(base, top, topRatio);
 					}
 					// Y is in front of wall, add top to be exactly at 0
 					if (currEdge[1] < 0) {
 						// Adding top cannot get us in bound
-						if (top[1] < 0) {
+						if (top[1] <= 0) {
 							break inBounds;
 						} else {
 							topRatio += -currEdge[1] / top[1];
@@ -67,7 +74,7 @@ export default class Collision {
 					// Y is behind the wall, add top to be exactly at 0
 					else if (currEdge[1] > v1mag) {
 						// Adding top cannot get us in bound
-						if (top[1] > 0) {
+						if (top[1] >= 0) {
 							break inBounds;
 						} else {
 							topRatio += (currEdge[1] - v1mag) / top[1];
@@ -77,7 +84,7 @@ export default class Collision {
 					// X with momentum is on the correct side of the wall, add top to be exactly at 0
 					if (currEdge[0] + momentum[0] > 0) {
 						// Adding top cannot get us to the other side
-						if (top[0] > 0) {
+						if (top[0] >= 0) {
 							break inBounds;
 						} else {
 							topRatio += -(currEdge[0] + momentum[0]) / top[0];
@@ -107,13 +114,44 @@ export default class Collision {
 					if (currEdge[0] + momentum[0] > 0 || currEdge[1] < 0 || currEdge[1] > v1mag || currEdge[2] > v2mag * currEdge[1] / v1mag) {
 						break inBounds;
 					}
-					// Collide here
+					let bounceMomentum;
+					// If we're in contact with a wall for more than one frame, that likely means we're
+					// sliding on a wall so kart momentum is not representative of our direction anymore
+					if (kart.wallContact < 1) {
+						bounceMomentum = kart.momentum;
+					} else {
+						bounceMomentum = mpVector(throttleHeading, kart.currentSpeed);
+					}
+					// Rotate momentum 180° around normal
+					const bounceVector = mpVector(rotateVector(bounceMomentum, normal, Math.PI), -BOUNCE_AMOUNT);
+					// Vector if kart went fully straight along the wall after hitting - respecting the impact angle
+					let straightVector = crossProduct(crossProduct(bounceVector, bounceMomentum), normal);
+					straightVector = mpVector(straightVector, kart.currentSpeed / absoluteValue(straightVector));
+					let angleness = angleBetween(bounceVector, straightVector)
+					// Make angleness between 0 and 1, set angleness so that <=~0.01 becomes 0
+					angleness = Math.max(0, Math.pow(angleness / (Math.PI / 2), 1.3) * 1.01 - 0.01);
+					// Give angleness cosine shape (smooth out around 0 and 1)
+					angleness = (1 - Math.cos(angleness * Math.PI)) / 2;
+					// If we're in contact with a wall for more than one frame, that likely means we're
+					// sliding on a wall so it doesn't make sense to bounce off it but we want to affect our speed
+					if (kart.wallContact < 1) {
+						kart.momentum = addVectors(mpVector(straightVector, 1 - angleness), mpVector(bounceVector, angleness));
+					} else {
+						// Instead of bounce vector, we actually use straightness but reduce it by bounce amount and add it identically to regular bounce
+						kart.momentum = mpVector(straightVector, 1 + angleness * (BOUNCE_AMOUNT - 1));
+					}
+					wallContact = true;
 				}
 				// Left of the wall (from wall perspective) and moving to the right
 				else if (momentum[0] > 0 || pos[0] < 0 || pos[0] + top[0] < 0) {
 
 				}
 			}
+		}
+		if (wallContact) {
+			kart.wallContact++;
+		} else {
+			kart.wallContact = 0;
 		}
 	}
 }
