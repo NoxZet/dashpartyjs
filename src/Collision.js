@@ -46,105 +46,103 @@ export default class Collision {
 				continue;
 			}
 
-			inBounds: if ((pos[1] > 0 || pos[1] + top[1] > 0) && (pos[1] < v1mag || pos[1] + top[1] < v1mag)) {
-				// Right of the wall (from wall perspective) and moving to the left
-				if (momentum[0] < 0 && (pos[0] > 0 || pos[0] + top[0] > 0)) {
-					// Find a point where pos (center) is on the correct side and pos+base+momentum on the other
-					const base = subVector(pos, cylinderBase);
-					let currEdge = base;
-					let topRatio = 0;
-					// Z is below wall, add top to be exactly at 0
-					if (currEdge[2] < 0) {
-						if (top[2] <= 0) {
-							throw "Wall is oriented incorrectly";
-						}
-						topRatio = -currEdge[2] / top[2];
-						currEdge = addVectors(base, top, topRatio);
-					}
-					// Y is in front of wall, add top to be exactly at 0
-					if (currEdge[1] < 0) {
-						// Adding top cannot get us in bound
-						if (top[1] <= 0) {
-							break inBounds;
-						} else {
-							topRatio += -currEdge[1] / top[1];
+			if ((pos[1] > 0 || pos[1] + top[1] > 0) && (pos[1] < v1mag || pos[1] + top[1] < v1mag)) {
+				forInBounds: for (let dir of [1, -1]) {
+					// Right of the wall (from wall perspective) and moving to the left
+					if (momentum[0] * dir < 0 && (pos[0] * dir > 0 || (pos[0] + top[0]) * dir > 0)) {
+						// Find a point where pos (center) is on the correct side and pos+base+momentum on the other
+						const base = addVectors(pos, cylinderBase, -dir);
+						let currEdge = base;
+						let topRatio = 0;
+						// Z is below wall, add top to be exactly at 0
+						if (currEdge[2] < 0) {
+							if (top[2] <= 0) {
+								throw "Wall is oriented incorrectly";
+							}
+							topRatio = -currEdge[2] / top[2];
 							currEdge = addVectors(base, top, topRatio);
 						}
-					}
-					// Y is behind the wall, add top to be exactly at 0
-					else if (currEdge[1] > v1mag) {
-						// Adding top cannot get us in bound
-						if (top[1] >= 0) {
-							break inBounds;
-						} else {
-							topRatio += (currEdge[1] - v1mag) / top[1];
-							currEdge = addVectors(base, top, topRatio);
+						// Y is in front of wall, add top to be exactly at 0
+						if (currEdge[1] < 0) {
+							// Adding top cannot get us in bound
+							if (top[1] <= 0) {
+								continue forInBounds;
+							} else {
+								topRatio += -currEdge[1] / top[1];
+								currEdge = addVectors(base, top, topRatio);
+							}
 						}
-					}
-					// X with momentum is on the correct side of the wall, add top to be exactly at 0
-					if (currEdge[0] + momentum[0] > 0) {
-						// Adding top cannot get us to the other side
-						if (top[0] >= 0) {
-							break inBounds;
-						} else {
-							topRatio += -(currEdge[0] + momentum[0]) / top[0];
-							currEdge = addVectors(base, top, topRatio);
+						// Y is behind the wall, add top to be exactly at 0
+						else if (currEdge[1] > v1mag) {
+							// Adding top cannot get us in bound
+							if (top[1] >= 0) {
+								continue forInBounds;
+							} else {
+								topRatio += (currEdge[1] - v1mag) / top[1];
+								currEdge = addVectors(base, top, topRatio);
+							}
 						}
-					}
-					// Try to adjust so center is on the correct side
-					let currCenter = addVectors(pos, top, topRatio);
-					if (currCenter[0] < 0) {
-						// Adding top cannot get us to the correct side
-						if (top[0] < 0) {
-							break inBounds;
-						} else {
-							topRatio += -currCenter[0] / top[0];
-							currCenter = addVectors(pos, top, topRatio);
-							currEdge = addVectors(base, top, topRatio);
+						// X with momentum is on the correct side of the wall, add top to be exactly at 0
+						if ((currEdge[0] + momentum[0]) * dir > 0) {
+							// Adding top cannot get us to the other side
+							if (top[0] * dir >= 0) {
+								continue forInBounds;
+							} else {
+								topRatio += -dir * (currEdge[0] + momentum[0]) / top[0];
+								currEdge = addVectors(base, top, topRatio);
+							}
 						}
-					}
-					// If we got to this point, there are several possibilities
-					// 1) Z (curr[2]) is above the wall (curr[2] > v2mag * curr[1] / v1mag)
-					// 2) We went through each coordinate and adjusted them all to be at their earliest point to be in bounds
-					//    if some of them fell out of this range as a result, that means there is no point where all are in bounds at the same time
-					// 3) Mometum got so far to the left the cylinder went through and we're no longer colliding from the correct side
-					// 4) We are actually in bounds
+						// Try to adjust so center is on the correct side
+						let currCenter = addVectors(pos, top, topRatio);
+						if (currCenter[0] * dir < 0) {
+							// Adding top cannot get us to the correct side
+							if (top[0] < 0) {
+								continue forInBounds;
+							} else {
+								topRatio += -dir * currCenter[0] / top[0];
+								currCenter = addVectors(pos, top, topRatio);
+								currEdge = addVectors(base, top, topRatio);
+							}
+						}
+						// If we got to this point, there are several possibilities
+						// 1) Z (curr[2]) is above the wall (curr[2] > v2mag * curr[1] / v1mag)
+						// 2) We went through each coordinate and adjusted them all to be at their earliest point to be in bounds
+						//    if some of them fell out of this range as a result, that means there is no point where all are in bounds at the same time
+						// 3) Mometum got so far to the left the cylinder went through and we're no longer colliding from the correct side
+						// 4) We are actually in bounds
 
-					// Because the walls we deal with are triangles, the max z changes based on y
-					if (currEdge[0] + momentum[0] > 0 || currEdge[1] < 0 || currEdge[1] > v1mag || currEdge[2] > v2mag * currEdge[1] / v1mag) {
-						break inBounds;
+						// Because the walls we deal with are triangles, the max z changes based on y
+						if ((currEdge[0] + momentum[0]) * dir > 0 || currEdge[1] < 0 || currEdge[1] > v1mag || currEdge[2] > v2mag * currEdge[1] / v1mag) {
+							continue forInBounds;
+						}
+						let bounceMomentum;
+						// If we're in contact with a wall for more than one frame, that likely means we're
+						// sliding on a wall so kart momentum is not representative of our direction anymore
+						if (kart.wallContact < 1) {
+							bounceMomentum = kart.momentum;
+						} else {
+							bounceMomentum = mpVector(throttleHeading, kart.currentSpeed);
+						}
+						// Rotate momentum 180° around normal
+						const bounceVector = mpVector(rotateVector(bounceMomentum, normal, Math.PI), -BOUNCE_AMOUNT);
+						// Vector if kart went fully straight along the wall after hitting - respecting the impact angle
+						let straightVector = crossProduct(crossProduct(bounceVector, bounceMomentum), mpVector(normal, dir));
+						straightVector = mpVector(straightVector, kart.currentSpeed / absoluteValue(straightVector));
+						let angleness = angleBetween(bounceVector, straightVector)
+						// Make angleness between 0 and 1, set angleness so that <=~0.01 becomes 0
+						angleness = Math.max(0, Math.pow(angleness / (Math.PI / 2), 1.3) * 1.01 - 0.01);
+						// Give angleness cosine shape (smooth out around 0 and 1)
+						angleness = (1 - Math.cos(angleness * Math.PI)) / 2;
+						// If we're in contact with a wall for more than one frame, that likely means we're
+						// sliding on a wall so it doesn't make sense to bounce off it but we want to affect our speed
+						if (kart.wallContact < 1) {
+							kart.momentum = addVectors(mpVector(straightVector, 1 - angleness), mpVector(bounceVector, angleness));
+						} else {
+							// Instead of bounce vector, we actually use straightness but reduce it by bounce amount and add it identically to regular bounce
+							kart.momentum = mpVector(straightVector, 1 + angleness * (BOUNCE_AMOUNT - 1));
+						}
+						wallContact = true;
 					}
-					let bounceMomentum;
-					// If we're in contact with a wall for more than one frame, that likely means we're
-					// sliding on a wall so kart momentum is not representative of our direction anymore
-					if (kart.wallContact < 1) {
-						bounceMomentum = kart.momentum;
-					} else {
-						bounceMomentum = mpVector(throttleHeading, kart.currentSpeed);
-					}
-					// Rotate momentum 180° around normal
-					const bounceVector = mpVector(rotateVector(bounceMomentum, normal, Math.PI), -BOUNCE_AMOUNT);
-					// Vector if kart went fully straight along the wall after hitting - respecting the impact angle
-					let straightVector = crossProduct(crossProduct(bounceVector, bounceMomentum), normal);
-					straightVector = mpVector(straightVector, kart.currentSpeed / absoluteValue(straightVector));
-					let angleness = angleBetween(bounceVector, straightVector)
-					// Make angleness between 0 and 1, set angleness so that <=~0.01 becomes 0
-					angleness = Math.max(0, Math.pow(angleness / (Math.PI / 2), 1.3) * 1.01 - 0.01);
-					// Give angleness cosine shape (smooth out around 0 and 1)
-					angleness = (1 - Math.cos(angleness * Math.PI)) / 2;
-					// If we're in contact with a wall for more than one frame, that likely means we're
-					// sliding on a wall so it doesn't make sense to bounce off it but we want to affect our speed
-					if (kart.wallContact < 1) {
-						kart.momentum = addVectors(mpVector(straightVector, 1 - angleness), mpVector(bounceVector, angleness));
-					} else {
-						// Instead of bounce vector, we actually use straightness but reduce it by bounce amount and add it identically to regular bounce
-						kart.momentum = mpVector(straightVector, 1 + angleness * (BOUNCE_AMOUNT - 1));
-					}
-					wallContact = true;
-				}
-				// Left of the wall (from wall perspective) and moving to the right
-				else if (momentum[0] > 0 || pos[0] < 0 || pos[0] + top[0] < 0) {
-
 				}
 			}
 		}
