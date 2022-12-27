@@ -12,6 +12,7 @@ export default class PlayerKart {
         this.driftCooldown = 0;
         this.driftRight = true;
         this.mtSteadiness = 0;
+        this.wallContact = 0;
         // Kart stats
         this.kartSpeed = 0.1;
         this.mtAcc = this.kartSpeed * 0.03;
@@ -118,7 +119,12 @@ export default class PlayerKart {
         let origAbsMomentum = absoluteValue(this.momentum);
         if (this.floored) {
             const throttleHeading = this.throttleHeading;
+            const origAngleDiff = Math.acos(dotProduct(throttleHeading, momentum) / (absoluteValue(throttleHeading) * origAbsMomentum));
             if (this.throttle) {
+                // If heading is off from momentum by at least 120°, add vectors rather than mp speed
+                if (origAngleDiff > Math.PI * 2 / 3) {
+                    momentum = addVectors(momentum, throttleHeading, this.kartThrottleAcc + this.kartSlowdown);
+                }
                 // Throttle momentum increase
                 if (origAbsMomentum < this.kartThrottleAcc) {
                     momentum = addVectors(momentum, throttleHeading, this.kartThrottleAcc);
@@ -127,16 +133,17 @@ export default class PlayerKart {
                 }
             } else if (this.miniturbo <= 0 && origAbsMomentum > 0) {
                 const slowdown = (this.brakeKey ? 2.2 : 1) * this.kartSlowdown;
-                momentum = mpVector(momentum, Math.max(0, origAbsMomentum - this.kartThrottleAcc) / origAbsMomentum);
+                momentum = mpVector(momentum, Math.max(0, origAbsMomentum - slowdown) / origAbsMomentum);
             }
             // Throttle momentum direction change
             let angleDiff = Math.atan2(
                 dotProduct(crossProduct(throttleHeading, momentum), [0, 0, 1]),
                 dotProduct(momentum, throttleHeading)
             );
+            // Don't turn angle if heading is off from momentum by at least 120°
             // During miniturbo without throttle, don't turn angle
-            if (this.throttle || this.miniturbo <= 0) {
-                let angleNormalized = Math.sqrt(Math.abs(angleDiff / (this.throttle ? 3 : 9) / this.avgMomentumTurnspeed))
+            if (origAngleDiff <= Math.PI * 2 / 3 && (this.throttle || this.miniturbo <= 0)) {
+                let angleNormalized = Math.sqrt(Math.abs(angleDiff / ((this.throttle ? 3 : 9) * (this.mtSteadiness / 15 + 1)) / this.avgMomentumTurnspeed))
                     * this.avgMomentumTurnspeed * Math.sign(angleDiff);
                 momentum = rotateVector(momentum, [ 0, 0, 1 ], angleNormalized);
             }
