@@ -34,6 +34,7 @@ export default class Level {
 
     setupCamera() {
         this.camera = new THREE.PerspectiveCamera(35, 1, 1, 1000);
+        this.cameraHeadings = [];
     }
 
     setupCanvas() {
@@ -47,10 +48,28 @@ export default class Level {
     updateCamera() {
         // Set camera behind kart
         const kart3d = this.trackObject.object3d;
-        const cameraHeading = this.trackObject.cameraHeading;
+        this.cameraHeadings.push(Math.atan2(this.trackObject.cameraHeading.y, this.trackObject.cameraHeading.x));
+        // Make the actual camera heading average of the last 7
+        if (this.cameraHeadings.length > 7) {
+            this.cameraHeadings.shift();
+        }
+        let sum = this.cameraHeadings[0];
+        let last = this.cameraHeadings[0];
+        for (let i = 1; i < this.cameraHeadings.length; i++) {
+            let heading = this.cameraHeadings[i];
+            // Handle wrap around above 360deg and below 0deg
+            if (heading > last + Math.PI) {
+                heading -= Math.PI * 2;
+            } else if (heading < last - Math.PI) {
+                heading += Math.PI * 2;
+            }
+            sum += heading;
+            last = heading;
+        }
+        const averageHeading = sum / this.cameraHeadings.length;
         this.camera.position.copy(new THREE.Vector3(
-            kart3d.position.x + cameraHeading.x * 6,
-            kart3d.position.y + cameraHeading.y * 6,
+            kart3d.position.x + Math.cos(averageHeading) * 6,
+            kart3d.position.y + Math.sin(averageHeading) * 6,
             kart3d.position.z + 2)
         );
         this.camera.up.copy(new THREE.Vector3(0, 0, 1));
