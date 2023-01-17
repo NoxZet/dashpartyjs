@@ -1,7 +1,39 @@
-import { printHudConsole } from "utils";
+import { compareFloats, printHudConsole } from "utils";
 import { absoluteValue, addVectors, angleBetween, crossProduct, invertMatrix3x3, mpMatrix3x3Vector, mpVector, rotateVector, subVector } from "vector_utils";
 
 const BOUNCE_AMOUNT = 0.6;
+
+const FLOOR_COLL_COUNT = 9;
+const FLOOR_COLL_CENTER = 0;
+const FLOOR_COLL_F = 1;
+const FLOOR_COLL_FL = 2;
+const FLOOR_COLL_L = 3;
+const FLOOR_COLL_BL = 4;
+const FLOOR_COLL_B = 5;
+const FLOOR_COLL_BR = 6;
+const FLOOR_COLL_R = 7;
+const FLOOR_COLL_RF = 8;
+
+const INNER_CENTER_RADIUS = 0.1;
+const INNER_INNER2_RADIUS = INNER_CENTER_RADIUS * 2;
+const OUTER_INNER_RADIUS = 1 - INNER_CENTER_RADIUS;
+const OUTER_CENTER_RADIUS = 1;
+const OUTER_INNER2_RADIUS = OUTER_CENTER_RADIUS + INNER_CENTER_RADIUS;
+const OUTER_OUTER2_RADIUS = OUTER_CENTER_RADIUS * 2;
+
+const TARGET_FRONT_OUTER = 1;
+const TARGET_FRONT_INNER = 2;
+const TARGET_CENTER = 0;
+const TARGET_BACK_INNER = 3;
+const TARGET_BACK_OUTER = 4;
+
+const TARGET_LENGTH = {
+	1: -OUTER_CENTER_RADIUS,
+	2: -INNER_CENTER_RADIUS,
+	0: 0,
+	3: INNER_CENTER_RADIUS,
+	4: OUTER_CENTER_RADIUS,
+};
 
 export default class Collision {
 	constructor() {
@@ -11,9 +43,22 @@ export default class Collision {
 			{0: [20, 7.5, 0], 1: [32, 12, 0], 2: [20, 7.5, 2]},
 			{0: [32, 12, 0], 1: [20, 7.5, 2], 2: [32, 12, 2]},
 		];
+		let i = 0;
+		let j = Math.PI / 15;
+		while (i < Math.PI * 2) {
+			this.colliderWalls.push({0: [40 + Math.sin(i) * 8, 40 + Math.cos(i) * 8, 0], 1: [40 + Math.sin(j) * 8, 40 + Math.cos(j) * 8, 0], 2: [40 + Math.sin(i) * 8, 40 + Math.cos(i) * 8, 1.5]});
+			this.colliderWalls.push({0: [40 + Math.sin(j) * 8, 40 + Math.cos(j) * 8, 0], 1: [40 + Math.sin(i) * 8, 40 + Math.cos(i) * 8, 1.5], 2: [40 + Math.sin(j) * 8, 40 + Math.cos(j) * 8, 1.5]});
+			i = j;
+			j += Math.PI / 15;
+		}
+		this.colliderFloors = [
+            {0: [7, 7, 0], 1: [20, 7.5, 0], 2: [15, 20, 0.8]},
+            {0: [7, 7, 0], 1: [15, 20, 0.8], 2: [4, 15, 1.2]},
+            //{0: [20, 7.5, 0], 1: [32, 12, 0.4], 2: [15, 20, 0.8]},
+		];
 	}
 
-	collide(kart) {
+	collideWalls(kart) {
 		let wallContact = false;
 		const throttleHeading = kart.throttleHeading;
 		for (let wall of this.colliderWalls) {
@@ -36,7 +81,6 @@ export default class Collision {
 			const pos = mpMatrix3x3Vector(invert, subVector(kart.pos, wall[0]));
 			const top = mpMatrix3x3Vector(invert, [0, 0, kart.hitboxHeight]);
 			const momentum = mpMatrix3x3Vector(invert, kart.momentum);
-			printHudConsole([pos, top, momentum]);
 			// Normal but rotated around axis perpendicular (so changes z and magnitude)
 			// so that it makes the closest point of the cylinder to the wall (assuming so clipping through)
 			let cylinderBase = crossProduct([0, 0, 1], crossProduct(normal, [0, 0, 1]));
@@ -153,6 +197,114 @@ export default class Collision {
 			kart.wallContact++;
 		} else {
 			kart.wallContact = 0;
+		}
+	}
+
+	getFloorZ(p0, v1, v2, kartPos) {
+		const collideOffset = subVector(kartPos, p0);
+		const divider = v1[0] * v2[1] - v1[1] * v2[0];
+		const v1mp = -(collideOffset[1] * v2[0] - collideOffset[0] * v2[1]) / divider;
+		const v2mp = (collideOffset[1] * v1[0] - collideOffset[0] * v1[1]) / divider;
+		if (v1mp < 0 || v2mp < 0 || v1mp + v2mp > 1) {
+			return null;
+		} else {
+			return p0[2] + v1mp * v1[2] + v2mp * v2[2];
+		}
+	}
+
+	getFloorHeights(positions, hitboxHeight) {
+		const hitboxHalfheight = hitboxHeight / 2;
+		// Get floor/ceiling at each point of the kart
+		const floorHighest = [];
+		const ceilingLowest = [];
+		const floored = [];
+		const ceilinged = [];
+		for (let i of positions) {
+			floorHighest.push(null);
+			ceilingLowest.push(null);
+		}
+		for (let wall of this.colliderFloors) {
+			// Create a set of three vectors to represent the floor
+			let v1 = subVector(wall[1], wall[0]); // forward y+ = v0 -> v1
+			let v2 = subVector(wall[2], wall[0]); // up z+ = v0 -> v2
+
+			for (let i = 0; i < FLOOR_COLL_COUNT; i++) {
+				const z = this.getFloorZ(wall[0], v1, v2, positions[i]);
+				if (z !== null) {
+					if (z < positions[i][2] + hitboxHalfheight && (floorHighest[i] === null || z > floorHighest[i]))
+						floorHighest[i] = z;
+					if (z > positions[i][2] + hitboxHalfheight && (floorHighest[i] === null || z > floorHighest[i]))
+						ceilingLowest[i] = z;
+				}
+			}
+		}
+		for (let i of positions) {
+			floored.push(floorHighest[i] > positions[i]);
+			floored.push(ceilingLowest[i] < positions[i] + hitboxHeight);
+		}
+		return [floorHighest, ceilingLowest, floored, ceilinged];
+	}
+
+	collideFloors(kart) {
+		let wallContact = false;
+		const throttleHeading = kart.throttleHeading;
+		const momentumPosition = addVectors(kart.pos, kart.momentum);
+		// Get offset with relation to kart rotation
+		const positions = [momentumPosition];
+		const modelNormal = crossProduct(kart.modelUp, kart.modelHeading);
+		const cornerRatio = 1 / Math.sqrt(2);
+		const hitboxHalfheight = kart.hitboxHeight / 2;
+		for (let i = 0; i < 4; i++) {
+			const angle = (i + 4) * Math.PI / 4;
+			// Offset center position in the kart heading direction front*1, front/10, -front/10, -front*1
+			positions.push(addVectors(momentumPosition, addVectors(mpVector(kart.modelHeading, Math.cos(angle)), mpVector(modelNormal, Math.sin(angle)))));
+			positions.push(addVectors(momentumPosition, addVectors(mpVector(kart.modelHeading, Math.cos(angle) * CENTER_RADIUS), mpVector(modelNormal, Math.sin(angle) * CENTER_RADIUS))));
+			positions.push(addVectors(momentumPosition, addVectors(mpVector(kart.modelHeading, - Math.cos(angle) * CENTER_RADIUS), mpVector(modelNormal, - Math.sin(angle) * CENTER_RADIUS))));
+			positions.push(addVectors(momentumPosition, addVectors(mpVector(kart.modelHeading, - Math.cos(angle)), mpVector(modelNormal, - Math.sin(angle)))));
+		}
+		// Get floor/ceiling at each point of the kart
+		let [floorHighest, ceilingLowest, floored, ceilinged] = this.getFloorHeights(positions, kart.hitboxHeight);
+		for (let i = 0; i < 4; i++) {
+			const FRONT_OUTER = i * 4 + 1;
+			const FRONT_INNER = i * 4 + 2;
+			const CENTER = 0;
+			const BACK_INNER = i * 4 + 3;
+			const BACK_OUTER = i * 4 + 4;
+			// If the back and front are floored, we are floored in a stable way (if not, the kart should fall or tilt)
+			const trueFloored = (floored[FRONT_OUTER] || floored[FRONT_INNER]) && (floored[BACK_INNER] || floored[BACK_OUTER]);
+			if (trueFloored) {
+				let target1, target2;
+				// Front and back outer are floored and the center is below the plane (flat or valley)
+				if (floored[FRONT_OUTER] && floored[BACK_OUTER] && !floored[CENTER] || compareFloats(
+					(floorHighest[BACK_OUTER] - floorHighest[FRONT_OUTER]) / OUTER_OUTER2_RADIUS,
+					(floorHighest[CENTER] - floorHighest[FRONT_OUTER]) / OUTER_CENTER_RADIUS
+				) >= 0) {
+					target1 = TARGET_FRONT_OUTER, target2 = TARGET_BACK_OUTER;
+				}
+				// Either front or back outer isn't floored, or the center is above the plane between them, (either way, a tip)
+				// A valley between front outer and back inner (we're balancing on front outer and back inner)
+				else if (floored[FRONT_OUTER] && floored[BACK_INNER] && compareFloats(
+					(floorHighest[FRONT_INNER] - floorHighest[FRONT_OUTER]) / OUTER_INNER_RADIUS,
+					(floorHighest[BACK_INNER] - floorHighest[FRONT_INNER]) / INNER_INNER2_RADIUS
+				) <= 0) {
+					target1 = TARGET_FRONT_OUTER, target2 = TARGET_BACK_INNER;
+				}
+				// A valley between back outer and front inner (we're balancing on front outer and back inner)
+				else if (compareFloats(
+					(floorHighest[BACK_INNER] - floorHighest[FRONT_INNER]) / INNER_INNER2_RADIUS,
+					(floorHighest[BACK_OUTER] - floorHighest[BACK_INNER]) / OUTER_INNER_RADIUS
+				) <= 0) {
+					target1 = TARGET_FRONT_INNER, target2 = TARGET_BACK_OUTER;
+				}
+				// Neither of the inners makes a valley, therefore there is a plateau in the center
+				else {
+					target1 = TARGET_FRONT_INNER, target2 = TARGET_BACK_INNER;
+				}
+				const target1Index = target1 === 0 ? 0 : i * 4 + target1;
+				const target2Index = target2 === 0 ? 0 : i * 4 + target2;
+				let minZ = (floorHighest[target1Index] + floorHighest[target2Index]) / 2;
+				let frontBackAngle = Math.atan((floorHighest[target2Index] - floorHighest[target1Index]) / (TARGET_LENGTH[target2] - TARGET_LENGTH[target1]));
+			}
 		}
 	}
 }

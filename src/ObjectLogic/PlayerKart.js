@@ -6,6 +6,7 @@ export default class PlayerKart {
         this.pos = [ 10, 10, 0 ];
         this.momentum = [ 0, 0, 0 ];
         this.modelHeading = [ 1, 0, 0 ];
+        this.modelUp = [];
         this.miniturbo = 0;
         this.floored = true;
         this.driftDuration = 0;
@@ -26,6 +27,7 @@ export default class PlayerKart {
         this.maxMomentumTurnspeed = this.kartTurnspeed * 2;
         // Hitbox
         this.hitboxRadius = 0.8;
+        this.floorRadius = 0.5;
         this.hitboxHeight = 1;
         // Controls
         this.steering = 0;
