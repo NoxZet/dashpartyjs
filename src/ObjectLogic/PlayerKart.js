@@ -102,7 +102,7 @@ export default class PlayerKart {
         if (this.driftDuration <= 0) {
             rotationAngle = this.steering * this.kartTurnspeed;
         }
-        this.modelHeading = rotateVector(this.modelHeading, [0, 0, 1], rotationAngle);
+        this.modelHeading = rotateVector(this.modelHeading, this.modelUp, rotationAngle);
     }
 
     get throttleHeading() {
@@ -112,7 +112,7 @@ export default class PlayerKart {
             // Sideway boost
             (this.mt > 0 && ((this.driftRight && this.steering < 0.2) || (!this.driftRight && this.steering > 0.2)))
         ) {
-            return rotateVector(this.modelHeading, [ 0, 0, 1 ], this.driftOffset * (5.5 - Math.sqrt(this.mtSteadiness)) / 5.5 * (this.driftRight ? -1 : 1));
+            return rotateVector(this.modelHeading, this.modelUp, this.driftOffset * (5.5 - Math.sqrt(this.mtSteadiness)) / 5.5 * (this.driftRight ? -1 : 1));
         } else {
             return this.modelHeading;
         }
@@ -149,7 +149,7 @@ export default class PlayerKart {
             if (origAngleDiff <= Math.PI * 2 / 3 && (this.throttle || this.miniturbo <= 0)) {
                 let angleNormalized = Math.sqrt(Math.abs(angleDiff / ((this.throttle ? 3 : 9) * (this.mtSteadiness / 15 + 1)) / this.avgMomentumTurnspeed))
                     * this.avgMomentumTurnspeed * Math.sign(angleDiff);
-                momentum = rotateVector(momentum, [ 0, 0, 1 ], angleNormalized);
+                momentum = rotateVector(momentum, this.modelUp, angleNormalized);
             }
             if (this.miniturbo > 0) {
                 // "a-tech", releasing throttle in MT causes the kart to be more stable
@@ -181,6 +181,6 @@ export default class PlayerKart {
     updateControls() {
         this.updateHeading();
         this.updateMomentum();
-        printHudConsole({absmomen: absoluteValue(this.momentum), momentum: this.momentum, mt: this.miniturbo, driftDuration: this.driftDuration, icyness: this.mtSteadiness});
+        printHudConsole({pos: absoluteValue(this.pos), momentum: this.momentum, forward: this.modelHeading, up: this.modelUp});
     }
 }

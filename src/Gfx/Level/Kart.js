@@ -24,6 +24,7 @@ export default class Kart {
         this.object3d.position.set(...this.kart.pos);
         // Adjust camera to be opposite of average of kart model heading and momentum
         const modelHeading = new Vector3(...this.kart.modelHeading);
+        const modelUp = new Vector3(...this.kart.modelUp);
         const momentum = new Vector3(...this.kart.momentum);
         if (momentum.length() >= 0.01) {
             momentum.normalize();
@@ -36,7 +37,7 @@ export default class Kart {
         }
         // Adjust object rotation to match kart heading
         const headingTarget = modelHeading.clone().multiplyScalar(-1).add(this.object3d.position);
-        this.object3d.up.set(0, 0, 1).normalize();
+        this.object3d.up.copy(modelUp).normalize();
         this.object3d.lookAt(headingTarget);
     }
 
