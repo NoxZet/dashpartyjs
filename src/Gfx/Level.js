@@ -18,23 +18,36 @@ export default class Level {
         const mapmat = new THREE.MeshBasicMaterial({
             map: textureLoader.load('res/map_test.png')
         });
-        const mapplane = new THREE.Mesh(new THREE.PlaneGeometry(70, 70), mapmat);
+        const mapplane = new THREE.Mesh(new THREE.PlaneGeometry(140, 140), mapmat);
         mapplane.material.side = THREE.DoubleSide;
         this.scene.add(mapplane);
 
         let color = 0xe6b400;
-        for (let wall of [
+        
+        let i = 0;
+        let j = Math.PI / 15;
+        const walls = [
             [7, 7, 0, 20, 7.5, 0, 7, 7, 2],
             [20, 7.5, 0, 7, 7, 2, 20, 7.5, 2],
             [20, 7.5, 0, 32, 12, 0, 20, 7.5, 2],
             [32, 12, 0, 20, 7.5, 2, 32, 12, 2],
-        ]) {
+            [7, 7, 0, 20, 7.5, 0, 15, 20, 0.8],
+            [7, 7, 0, 15, 20, 0.8, 4, 15, 1.2],
+            //[20, 7.5, 0, 32, 12, 0.4, 15, 20, 0.8],
+        ]
+        while (i < Math.PI * 2) {
+            walls.push([40 + Math.sin(i) * 8, 40 + Math.cos(i) * 8, 0, 40 + Math.sin(j) * 8, 40 + Math.cos(j) * 8, 0, 40 + Math.sin(i) * 8, 40 + Math.cos(i) * 8, 1.5]);
+            walls.push([40 + Math.sin(j) * 8, 40 + Math.cos(j) * 8, 0, 40 + Math.sin(i) * 8, 40 + Math.cos(i) * 8, 1.5, 40 + Math.sin(j) * 8, 40 + Math.cos(j) * 8, 1.5]);
+            i = j;
+            j += Math.PI / 15;
+        }
+        for (let wall of walls) {
             const wallmat = new THREE.MeshBasicMaterial({
                 color: color,
                 side: THREE.DoubleSide,
             });
             color -= 0x2000;
-            color += 0x30;
+            color += 0x15;
             const triangle = new THREE.BufferGeometry();
             triangle.setAttribute("position", new THREE.BufferAttribute(new Float32Array(wall), 3));
             this.scene.add(new THREE.Mesh(triangle, wallmat));

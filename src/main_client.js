@@ -27,7 +27,8 @@ const collision = new Collision();
 let frame = 0;
 let timer = 0;
 let timerActive = 0;
-let skipHz = [true];//[true, false, true, false, false];
+let skipHz = [true];
+//let skipHz = [true, false, true, false, false];
 function request() {
     frame++;
     if (!skipHz[frame % skipHz.length]) {
@@ -47,7 +48,8 @@ function request() {
     playerManager.refresh();
 
     playerKart.updateControls();
-    collision.collide(playerKart);
+    collision.collideWalls(playerKart);
+    collision.collideFloors(playerKart);
     playerKart.updatePosition();
     levelKart.update();
 
