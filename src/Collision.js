@@ -1,5 +1,5 @@
 import { compareFloats, printHudConsole } from "utils";
-import { absoluteValue, addVectors, angleBetween, crossProduct, invertMatrix3x3, mpMatrix3x3Vector, mpVector, rotateVector, subVector } from "vector_utils";
+import { absoluteValue, addVectors, angleBetween, crossProduct, flattenUnitVector, invertMatrix3x3, mpMatrix3x3Vector, mpVector, normalizeVector, rotateVector, subVector } from "vector_utils";
 
 const BOUNCE_AMOUNT = 0.6;
 
@@ -219,12 +219,12 @@ export default class Collision {
 		const ceilingLowest = [];
 		const floored = [];
 		const ceilinged = [];
-		for (let i of positions) {
+		for (let i in positions) {
 			floorHighest.push(null);
 			ceilingLowest.push(null);
 		}
 		for (let wall of this.colliderFloors) {
-			// Create a set of three vectors to represent the floor
+			// Create a set of two vectors to represent the floor
 			let v1 = subVector(wall[1], wall[0]); // forward y+ = v0 -> v1
 			let v2 = subVector(wall[2], wall[0]); // up z+ = v0 -> v2
 
@@ -233,16 +233,26 @@ export default class Collision {
 				if (z !== null) {
 					if (z < positions[i][2] + hitboxHalfheight && (floorHighest[i] === null || z > floorHighest[i]))
 						floorHighest[i] = z;
-					if (z > positions[i][2] + hitboxHalfheight && (floorHighest[i] === null || z > floorHighest[i]))
+					if (z > positions[i][2] + hitboxHalfheight && (ceilingLowest[i] === null || z < ceilingLowest[i]))
 						ceilingLowest[i] = z;
 				}
 			}
 		}
-		for (let i of positions) {
-			floored.push(floorHighest[i] > positions[i]);
-			floored.push(ceilingLowest[i] < positions[i] + hitboxHeight);
+		for (let i in positions) {
+			floored.push(floorHighest[i] > positions[i][2]);
+			ceilinged.push(ceilingLowest[i] < positions[i][2] + hitboxHeight);
 		}
 		return [floorHighest, ceilingLowest, floored, ceilinged];
+	}
+
+	pushAxisVectors(kart, angle, positions) {
+		// Offset center position in the kart heading direction front*1, front/10, -front/10, -front*1
+		const frontVector = addVectors(mpVector(kart.modelHeading, Math.cos(angle)), mpVector(kart.modelNormal, Math.sin(angle)));
+		positions.push(addVectors(momentumPosition, mpVector(frontVector, kart.floorRadius)));
+		positions.push(addVectors(momentumPosition, mpVector(frontVector, kart.floorRadius * CENTER_RADIUS)));
+		positions.push(addVectors(momentumPosition, mpVector(frontVector, -kart.floorRadius * CENTER_RADIUS)));
+		positions.push(addVectors(momentumPosition, mpVector(frontVector, -kart.floorRadius)));
+		return frontVector;
 	}
 
 	collideFloors(kart) {
@@ -251,19 +261,18 @@ export default class Collision {
 		const momentumPosition = addVectors(kart.pos, kart.momentum);
 		// Get offset with relation to kart rotation
 		const positions = [momentumPosition];
-		const modelNormal = crossProduct(kart.modelUp, kart.modelHeading);
+		kart.modelNormal = crossProduct(kart.modelUp, kart.modelHeading);
 		const cornerRatio = 1 / Math.sqrt(2);
 		const hitboxHalfheight = kart.hitboxHeight / 2;
+		const frontVectors = [];
 		for (let i = 0; i < 4; i++) {
-			const angle = (i + 4) * Math.PI / 4;
-			// Offset center position in the kart heading direction front*1, front/10, -front/10, -front*1
-			positions.push(addVectors(momentumPosition, addVectors(mpVector(kart.modelHeading, Math.cos(angle)), mpVector(modelNormal, Math.sin(angle)))));
-			positions.push(addVectors(momentumPosition, addVectors(mpVector(kart.modelHeading, Math.cos(angle) * CENTER_RADIUS), mpVector(modelNormal, Math.sin(angle) * CENTER_RADIUS))));
-			positions.push(addVectors(momentumPosition, addVectors(mpVector(kart.modelHeading, - Math.cos(angle) * CENTER_RADIUS), mpVector(modelNormal, - Math.sin(angle) * CENTER_RADIUS))));
-			positions.push(addVectors(momentumPosition, addVectors(mpVector(kart.modelHeading, - Math.cos(angle)), mpVector(modelNormal, - Math.sin(angle)))));
+			const angle = i * Math.PI / 4;
+			frontVectors.push(this.pushAxisVectors(kart, angle, positions));
 		}
 		// Get floor/ceiling at each point of the kart
 		let [floorHighest, ceilingLowest, floored, ceilinged] = this.getFloorHeights(positions, kart.hitboxHeight);
+		// Get all axis along which the kart is (stable) true floored (front half and back half are both touching the floor)
+		const trueFloored = [];
 		for (let i = 0; i < 4; i++) {
 			const FRONT_OUTER = i * 4 + 1;
 			const FRONT_INNER = i * 4 + 2;
@@ -302,9 +311,109 @@ export default class Collision {
 				}
 				const target1Index = target1 === 0 ? 0 : i * 4 + target1;
 				const target2Index = target2 === 0 ? 0 : i * 4 + target2;
-				let minZ = (floorHighest[target1Index] + floorHighest[target2Index]) / 2;
-				let frontBackAngle = Math.atan((floorHighest[target2Index] - floorHighest[target1Index]) / (TARGET_LENGTH[target2] - TARGET_LENGTH[target1]));
+				trueFloored[i] = {
+					axis: i,
+					minZ: (floorHighest[target2Index] * TARGET_LENGTH[target2] - floorHighest[target1Index] * TARGET_LENGTH[target1]) / (TARGET_LENGTH[target2] - TARGET_LENGTH[target1]),
+					frontVector: frontVectors[i],
+					// Angle look from front toward back (elevation)
+					frontBackAngle: Math.atan((floorHighest[target2Index] - floorHighest[target1Index]) / (TARGET_LENGTH[target2] - TARGET_LENGTH[target1])),
+				};
 			}
 		}
+		// All true floored minZs will be higher than the current z, otherwise they wouldn't be true floored
+		if (trueFloored.length >= 1) {
+			// If multiple are true floored, pick the highest z among them
+			const floor = trueFloored[0];
+			for (let trueFloor of trueFloored) {
+				if (trueFloor.minZ > floor.minZ) {
+					floor = trueFloor;
+				}
+			}
+			// Because we are probing the floor from top (in z+ direction), we rotate toward it
+			// Front vector is normalized kart heading, we flatten it to make sure angle is from xy plane toward top
+			const frontFlat = flattenUnitVector(floor.frontVector, 2);
+			// The frontVector is likely not in the xy plane, we take its current angle from the plane into account
+			const currentElevation = -Math.asin(floor.frontVector.z);
+			const rotationAngle = -floor.frontBackAngle - currentElevation;
+			// Axis that we will rotate everything around, must be in the xy plane because we are raising toward top (z+)
+			const rotationAxis = crossProduct(floor.frontVector, [ 0, 0, 1 ]);
+			kart.modelHeading = rotateVector(kart.modelHeading, rotationAxis, rotationAngle);
+			// Roughly keep the old modelUp
+			kart.modelUp = rotateVector(kart.modelUp, rotationAxis, rotationAngle);
+			// After the kart gets to the position above, we want to change the momentum to be in line with the floor
+			kart.nextMomentum = crossProduct(modelUp, crossProduct(kart.momentum, modelUp));
+			// We were calculating where the kart will be with its momentum and calculated the correct z at this position
+			// we want the kart to actually move to that position but with the corrected z
+			kart.momentum.z = floor.minZ - kart.pos[2];
+
+			// Get intersections at axis perpendicular to the true floor frontVector
+			this.raiseOnAngle(kart, ((frontFlat.axis + 2) % 4) * Math.PI / 4);
+		}
+		else {
+			const maxRaiseBy = null;
+			// If there is no true floor, find the axis with most rotation
+			for (let i = 0; i < 4; i++) {
+				const raiseBy = this.getAxisRaise(kart, frontVectors[i], [
+					floorHighest[i * 4 + 1], floorHighest[i * 4 + 2], floorHighest[i * 4 + 3], floorHighest[i * 4 + 4],
+				]);
+				if (raiseBy !== null && (maxRaiseBy === null || Math.abs(raiseBy) > Math.abs(maxRaiseBy.raiseBy))) {
+					maxRaiseBy = {
+						axis: i,
+						raiseBy: raiseBy,
+						frontVector: frontVectors[i],
+					};
+				}
+			}
+			if (maxRaiseBy !== null) {
+				this.rotateKart(kart, maxRaiseBy.frontVector, maxRaiseBy.raiseBy);
+				// Get intersections at axis perpendicular to the true floor frontVector
+				this.raiseOnAngle(kart, ((maxRaiseBy.axis + 2) % 4) * Math.PI / 4);
+			}
+		}
+	}
+
+	/**
+	 * Calculate raising angle on a given kart angle (angle is given relative to its heading) and rotate the kart
+	 */
+	raiseOnAngle(kart, angle) {
+		const positions = [];
+		const frontVector = this.pushAxisVectors(kart, angle, positions);
+		let [floorHighest, ceilingLowest, floored, ceilinged] = this.getFloorHeights(positions, kart.hitboxHeight);
+		const raiseBy = this.getAxisRaise(kart, frontVector, floorHighest);
+		if (raiseBy !== null) {
+			this.rotateKart(kart, frontVector, raiseBy);
+		}
+	}
+
+	/**
+	 * Rotate the kart (heaing and up) around axis by a given angle
+	 */
+	rotateKart(kart, frontVector, rotateBy) {
+		const rotationAxis = crossProduct(frontVector, [0, 0, 1]);//kart.modelUp);
+		kart.modelHeading = rotateVector(kart.modelHeading, rotationAxis, rotateBy);
+		kart.modelUp = rotateVector(kart.modelUp, rotationAxis, rotateBy);
+	}
+
+	getAxisRaise(kart, frontVector, floorHighest) {
+		const currentFrontBackAngle = -Math.atan(frontVector[2] / absoluteValue(frontVector[0], frontVector[1]));
+		// Calculate kart angle (in the form above) at which the kart would be touching the floor
+		const posAngles = [];
+		// How much the given position requires raising in z. If negative, there is room to rotate down on it.
+		const posNeedRaise = [];
+		for (let i in floorHighest) {
+			const posAngle = Math.atan((floorHighest[i] - kart.pos[2]) / TARGET_LENGTH[i - 1]);
+			posAngles.push(posAngle);
+			// For floor in the front, negative difference means requires raising, for floor in back, positive means requires raising
+			posNeedRaise.push((posAngle - currentFrontBackAngle) * Math.sign(TARGET_LENGTH[i - 1]));
+		}
+		const needRaiseFront = Math.max(posNeedRaise[0], posNeedRaise[1]);
+		const needRaiseBack = Math.max(posNeedRaise[2], posNeedRaise[3]);
+		let raiseBy = null;
+		if (needRaiseFront > 0 && needRaiseBack < 0) {
+			raiseBy = Math.min(needRaiseFront, -needRaiseBack);
+		} else if (needRaiseBack > 0 && needRaiseFront < 0) {
+			raiseBy = -Math.min(needRaiseBack, -needRaiseFront);
+		}
+		return raiseBy;
 	}
 }

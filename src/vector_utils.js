@@ -35,6 +35,24 @@ export function crossProduct(a, b) {
     return [ a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0] ];
 }
 
+export function normalizeVector(vector, size = 1) {
+    return mpVector(vector, size / absoluteValue(vector));
+}
+
+/**
+ * Adjusts the vector to be 0 on given `coord` and adjusts magnitude to be 0
+ * @param {number[]} vector 
+ * @param {number} coord
+ */
+export function flattenUnitVector(vector, coord) {
+    const result = [
+        coord === 0 ? 0 : vector[0],
+        coord === 1 ? 0 : vector[1],
+        coord === 2 ? 0 : vector[2],
+    ];
+    return mpVector(result, 1 / absoluteValue(result));
+}
+
 export function rotateVector(vector, axis, angle) {
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
