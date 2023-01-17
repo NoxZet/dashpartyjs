@@ -5,8 +5,10 @@ export default class PlayerKart {
     constructor() {
         this.pos = [ 10, 10, 0 ];
         this.momentum = [ 0, 0, 0 ];
+        // Set temporarily by collision engine - momentum is used to move to the point of collision and for next tick set to this
+        this.nextMomentum = null;
         this.modelHeading = [ 1, 0, 0 ];
-        this.modelUp = [];
+        this.modelUp = [ 0, 0, 1 ];
         this.miniturbo = 0;
         this.floored = true;
         this.driftDuration = 0;
@@ -170,6 +172,10 @@ export default class PlayerKart {
 
     updatePosition() {
         this.pos = addVectors(this.pos, this.momentum);
+        if (this.nextMomentum) {
+            this.momentum = this.nextMomentum;
+            this.nextMomentum = null;
+        }
     }
 
     updateControls() {
