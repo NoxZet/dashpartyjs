@@ -17,7 +17,7 @@ export default class PlayerKart {
         this.mtSteadiness = 0;
         this.wallContact = 0;
         // Kart stats
-        this.kartSpeed = 0.1;
+        this.kartSpeed = 0.2;
         this.mtAcc = this.kartSpeed * 0.03;
         this.kartThrottleAcc = this.kartSpeed * 0.005;
         this.kartSlowdown = this.kartSpeed * 0.012;
@@ -94,7 +94,7 @@ export default class PlayerKart {
                 let driftStartBonus = (this.driftDuration < 7 ? (7 - this.driftDuration) : 0) / 4;
                 // Drift less sharp with steadiness
                 driftStartBonus *= (5.5 - Math.sqrt(this.mtSteadiness)) / 5.5;
-                rotationAngle = dirMp * this.kartTurnspeed * (0.2 + steerCoefficient * 1.0 + driftStartBonus);
+                rotationAngle = dirMp * this.kartTurnspeed * (0.35 + steerCoefficient * 1.0 + driftStartBonus);
                 this.driftDuration++;
             }
         }
@@ -110,7 +110,7 @@ export default class PlayerKart {
             // Alter throttle heading in drift
             this.driftDuration > 0 ||
             // Sideway boost
-            (this.mt > 0 && ((this.driftRight && this.steering < 0.2) || (!this.driftRight && this.steering > 0.2)))
+            (this.miniturbo > 0 && ((this.driftRight && this.steering > 0.2) || (!this.driftRight && this.steering < -0.2)))
         ) {
             return rotateVector(this.modelHeading, this.modelUp, this.driftOffset * (5.5 - Math.sqrt(this.mtSteadiness)) / 5.5 * (this.driftRight ? -1 : 1));
         } else {
