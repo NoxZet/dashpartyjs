@@ -3,7 +3,7 @@ import { absoluteValue, addVectors, crossProduct, dotProduct, mpVector, rotateVe
 
 export default class PlayerKart {
     constructor() {
-        this.pos = [ 10, 10, 0 ];
+        this.pos = [ 14, 10, 0 ];
         this.momentum = [ 0, 0, 0 ];
         // Set temporarily by collision engine - momentum is used to move to the point of collision and for next tick set to this
         this.nextMomentum = null;
