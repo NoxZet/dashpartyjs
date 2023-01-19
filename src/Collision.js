@@ -315,7 +315,7 @@ export default class Collision {
 					minZ: (floorHighest[target2Index] * TARGET_LENGTH[target2] - floorHighest[target1Index] * TARGET_LENGTH[target1]) / (TARGET_LENGTH[target2] - TARGET_LENGTH[target1]),
 					frontVector: frontVectors[i],
 					// Angle look from front toward back (elevation)
-					frontBackAngle: Math.atan((floorHighest[target2Index] - floorHighest[target1Index]) / (TARGET_LENGTH[target2] - TARGET_LENGTH[target1])),
+					frontBackAngle: Math.atan((floorHighest[target2Index] - floorHighest[target1Index]) / (kart.floorRadius * (TARGET_LENGTH[target2] - TARGET_LENGTH[target1]))),
 				});
 			}
 		}
@@ -335,7 +335,7 @@ export default class Collision {
 			const currentElevation = -Math.asin(floor.frontVector[2]);
 			const rotationAngle = floor.frontBackAngle - currentElevation;
 			// Axis that we will rotate everything around, must be in the xy plane because we are raising toward top (z+)
-			const rotationAxis = crossProduct(floor.frontVector, [ 0, 0, 1 ]);
+			const rotationAxis = normalizeVector(crossProduct(floor.frontVector, [ 0, 0, 1 ]));
 			kart.modelHeading = rotateVector(kart.modelHeading, rotationAxis, rotationAngle);
 			// Roughly keep the old modelUp
 			console.log('true floor modelUp set');
@@ -347,17 +347,11 @@ export default class Collision {
 			// we want the kart to actually move to that position but with the corrected z
 			kart.momentum[2] = floor.minZ - kart.pos[2];
 
-			/*console.log(kart.modelHeading);
-			console.log(kart.modelUp);
-			console.log(kart.modelNormal);
-			console.log(kart.pos);
-			console.log(kart.momentum);*/
-
 			// Get intersections at axis perpendicular to the true floor frontVector
 			this.raiseOnAngle(kart, ((floor.axis + 2) % 4) * Math.PI / 4);
 		}
 		else {
-			const maxRaiseBy = null;
+			let maxRaiseBy = null;
 			// If there is no true floor, find the axis with most rotation
 			for (let i = 0; i < 4; i++) {
 				const raiseBy = this.getAxisRaise(kart, frontVectors[i], [
@@ -396,7 +390,10 @@ export default class Collision {
 	 * Rotate the kart (heaing and up) around axis by a given angle
 	 */
 	rotateKart(kart, frontVector, rotateBy) {
-		const rotationAxis = crossProduct(frontVector, [0, 0, 1]);//kart.modelUp);
+		if (compareFloats(rotateBy, 0) === 0) {
+			return;
+		}
+		const rotationAxis = normalizeVector(crossProduct(frontVector, [0, 0, 1]));
 		kart.modelHeading = rotateVector(kart.modelHeading, rotationAxis, rotateBy);
 		console.log('rotateKart modelUp set');
 		kart.modelUp = rotateVector(kart.modelUp, rotationAxis, rotateBy);
@@ -405,15 +402,13 @@ export default class Collision {
 
 	getAxisRaise(kart, frontVector, floorHighest) {
 		const currentFrontBackAngle = -Math.atan(frontVector[2] / absoluteValue(frontVector[0], frontVector[1]));
-		// Calculate kart angle (in the form above) at which the kart would be touching the floor
-		const posAngles = [];
 		// How much the given position requires raising in z. If negative, there is room to rotate down on it.
 		const posNeedRaise = [];
 		for (let i in floorHighest) {
-			const posAngle = Math.atan((floorHighest[i] - kart.pos[2]) / TARGET_LENGTH[i - 1]);
-			posAngles.push(posAngle);
+			// Calculate kart angle (in the form above) at which the kart would be touching the floor
+			const posAngle = Math.atan((floorHighest[i] - kart.pos[2]) / (kart.floorRadius * TARGET_LENGTH[parseInt(i) + 1]));
 			// For floor in the front, negative difference means requires raising, for floor in back, positive means requires raising
-			posNeedRaise.push((posAngle - currentFrontBackAngle) * Math.sign(TARGET_LENGTH[i - 1]));
+			posNeedRaise.push((posAngle - currentFrontBackAngle) * Math.sign(TARGET_LENGTH[parseInt(i) + 1]));
 		}
 		const needRaiseFront = Math.max(posNeedRaise[0], posNeedRaise[1]);
 		const needRaiseBack = Math.max(posNeedRaise[2], posNeedRaise[3]);
